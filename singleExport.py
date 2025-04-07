@@ -17,7 +17,7 @@ DEFAULT_ABC_ARGS = exportVars['defaultArgList']
 
 class SingleExport(alembicExport.BaseExport):
     def __init__(self):
-        super().__init__()
+        super(SingleExport, self).__init__()
     
     def setFramerange(self, min=None, max=None):
         """Sets and returns the framerange."""
@@ -25,10 +25,10 @@ class SingleExport(alembicExport.BaseExport):
     
     def getExportSets(self):
         """Returns the found export sets. Errors if none found."""
-        sets = cmds.ls(f'::*{EXPORT_SET_NAME}*', sets=1)
+        sets = cmds.ls('::*{0}*'.format(EXPORT_SET_NAME), sets=1)
         
         if not sets:
-            cmds.error(f'No valid sets were found. Sets with the phrase {EXPORT_SET_NAME} are needed.', noContext=1)
+            cmds.error('No valid sets were found. Sets with the phrase {0} are needed.'.format(EXPORT_SET_NAME), noContext=1)
     
         self.objectsForExport = sets
         
@@ -63,11 +63,11 @@ class SingleExport(alembicExport.BaseExport):
         Exports all objects found in each export set into one file.
         Runs the export as a mel command.
         """
-        objects = [f'-root {obj}' for obj in self.exportObjects]
+        objects = ['-root {0}'.format(obj) for obj in self.exportObjects]
         root = ' '.join(objects)
-        job = f'{root} -framerange {self.framerange} {DEFAULT_ABC_ARGS} -file {self.filepath}'
+        job = '{0} -framerange {1} {2} -file {3}'.format(root, self.framerange, DEFAULT_ABC_ARGS, self.filepath)
         
-        exportCommand = f'AbcExport -j "{job}"'
+        exportCommand = 'AbcExport -j "{0}"'.format(job)
         mel.eval(exportCommand)
         
     def deleteDuplicateObjects(self):
@@ -89,7 +89,7 @@ class SingleExport(alembicExport.BaseExport):
         exporter.exportFile()
         exporter.deleteDuplicateObjects()
         exporter.addFrameData()
-        print(end='Export Completed')
+        print('Export Completed')
         
         return exporter
         
@@ -104,29 +104,7 @@ class SingleExport(alembicExport.BaseExport):
         exporter.exportFile()
         exporter.deleteDuplicateObjects()
         exporter.addFrameData()
-        print(end='Export Completed')
+        print('Export Completed')
         
         return exporter
-
-def standalone_export(maya_file, output_path, export_sets=None, frame_range=None):
-    """支持独立运行的导出函数"""
-    exporter = SingleExport()
-    
-    if frame_range:
-        exporter.setFramerange(*frame_range)
-    else:
-        exporter.setFramerange()
-        
-    if export_sets:
-        exporter.objectsForExport = export_sets
-    else:
-        exporter.getExportSets()
-        
-    exporter.setFilepath(output_path)
-    exporter.duplicateObjects()
-    exporter.exportFile()
-    exporter.deleteDuplicateObjects()
-    exporter.addFrameData()
-    
-    return True
 

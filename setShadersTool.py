@@ -8,7 +8,7 @@ import maya.cmds as cmds
 
 class SetShader:
     def __init__(self) -> None:
-        print(end='Setting shader to face components. . . ')
+        print('Setting shader to face components. . . ')
         cmds.undoInfo(openChunk=1, chunkName='Shader_Set_Action')
         self.getGeometry()
         for self.geometry in self.selectedGeometry:
@@ -22,7 +22,7 @@ class SetShader:
             
             self.applyShaders()
         cmds.undoInfo(closeChunk=1, chunkName='Shader_Set_Action')
-        print(end='Shaders set successfully!')
+        print('Shaders set successfully!')
 
 
     def getGeometry(self):
@@ -44,7 +44,7 @@ class SetShader:
         shadingEngines = cmds.listConnections(history, type='shadingEngine')
         if len(shadingEngines) >1:
             print('Shading groups found:', shadingEngines, sep='\n')
-            cmds.error(f'Multiple shading engines already attached to {self.geometry} - skipping! (Nothing more needs to be done to this object)\n', noContext=1)
+            cmds.error('Multiple shading engines already attached to {0} - skipping! (Nothing more needs to be done to this object)\n'.format(self.geometry), noContext=1)
         shader = shadingEngines[0]
 
         self.shader = shader
@@ -54,15 +54,15 @@ class SetShader:
         The default standardSurface is assigned."""
         cmds.select(self.geometry, r=1)
         cmds.sets(e=1, forceElement='initialShadingGroup')
-        print(end='SET INITIAL!\n'+self.geometry)
+        print('SET INITIAL!\n'+self.geometry)
 
 
     def setShaderToFaces(self):
         """Set a shader to the faces of a mesh object."""
-        meshFaces = f'{self.geometry}.f[*]'
+        meshFaces = '{0}.f[*]'.format(self.geometry)
         cmds.select(meshFaces,r=1)
         cmds.sets(e=1, forceElement=self.shader)
-        print(end='SET MATERIAL!\n'+meshFaces)
+        print('SET MATERIAL!\n'+meshFaces)
 
     def applyShaders(self):
         """Applies mesh and object shaders. Must be in the afformentioned order.

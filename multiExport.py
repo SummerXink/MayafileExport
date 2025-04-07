@@ -1,6 +1,5 @@
 #
-#这段代码定义了一个 MultiExport 类，继承自 BaseExport 类，用于批量导出多个选择集中的物体为 Alembic 文件。
-# 它扩展了原始的导出功能，允许用户一次性导出多个 Alembic 文件，同时处理与每个导出集相关的不同数据，如文件路径、物体和起始帧等
+#
 #
 #
 #
@@ -19,7 +18,7 @@ DEFAULT_ABC_ARGS = exportVars['defaultArgList']
 
 class MultiExport(alembicExport.BaseExport):
     def __init__(self):
-        super().__init__()
+        super(MultiExport, self).__init__()
         self.exportDict = {}
         
     def setFramerange(self, min=None, max=None):
@@ -31,7 +30,7 @@ class MultiExport(alembicExport.BaseExport):
         """Returns the export sets with the user-defined export set naming convention.
         This is a static method purely so it can be used in the UI.
         """
-        sets = cmds.ls(f'::*{EXPORT_SET_NAME}*', sets=1)
+        sets = cmds.ls('::*{0}*'.format(EXPORT_SET_NAME), sets=1)
         
         return sets
     
@@ -41,7 +40,7 @@ class MultiExport(alembicExport.BaseExport):
         sets = self.findExportSets()
         
         if not sets:
-            cmds.error(f'No valid sets were found. Sets with the phrase {EXPORT_SET_NAME} are needed.', noContext=1)
+            cmds.error('No valid sets were found. Sets with the phrase {0} are needed.'.format(EXPORT_SET_NAME), noContext=1)
     
         self.exportSets = sets
         
@@ -95,13 +94,13 @@ class MultiExport(alembicExport.BaseExport):
         jobs = []
         for set in self.exportDict: 
             filepath = self.exportDict[set]['filepath'] 
-            objects = [f'-root {obj}' for obj in self.exportDict[set]['exportObjects']]
+            objects = ['-root {0}'.format(obj) for obj in self.exportDict[set]['exportObjects']]
             root = ' '.join(objects)
-            job = f'{root} -framerange {self.framerange} {DEFAULT_ABC_ARGS} -file {filepath}'
+            job = '{0} -framerange {1} {2} -file {3}'.format(root, self.framerange, DEFAULT_ABC_ARGS, filepath)
             jobs.append(job)
     
         melString = ['AbcExport']
-        melString.extend(f'-j "{job}"' for job in jobs)
+        melString.extend('-j "{0}"'.format(job) for job in jobs)
         exportCommand = ' '.join(melString)
         mel.eval(exportCommand)
         
@@ -127,7 +126,7 @@ class MultiExport(alembicExport.BaseExport):
         exporter.exportFiles()
         exporter.deleteDuplicateObjects()
         exporter.addFrameData()
-        print(end='Export Completed')
+        print('Export Completed')
         
         return exporter
     
@@ -153,4 +152,4 @@ class MultiExport(alembicExport.BaseExport):
         exporter.exportFiles()
         exporter.deleteDuplicateObjects()
         exporter.addFrameData()
-        print(end='Export Completed')
+        print('Export Completed')

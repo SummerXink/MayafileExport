@@ -45,7 +45,7 @@ def renameShadingGroup(materials):
     editedShadingGroups = []
     for m in materials:
         shadingGroup = cmds.listConnections(m,type='shadingEngine')
-        editedShadingGroups.append(cmds.rename(shadingGroup,f'{m}_SG'))
+        editedShadingGroups.append(cmds.rename(shadingGroup,'{0}_SG'.format(m)))
     return editedShadingGroups
 
 def run():
@@ -55,7 +55,7 @@ def run():
     selectedMaterials = getSelection()
     shadingGroups = renameShadingGroup(selectedMaterials)
     print('New shading groups:\n','\n'.join(shadingGroups))
-    print(end=f'Successfully renamed {len(shadingGroups)} shading group(s)!')
+    print('Successfully renamed {0} shading group(s)!'.format(len(shadingGroups)))
     cmds.undoInfo(closeChunk=1)
 
     
