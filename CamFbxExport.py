@@ -9,8 +9,6 @@ from maya import cmds, mel
 from PySide2 import QtWidgets, QtGui, QtCore
 from PySide2.QtCore import Qt
 
-OutputPath = 'P:/projects/TBX2/person/zwx/temp/01'
-
 
 def _find_cams(default=False):
     """Find cameras in the scene.
