@@ -12,7 +12,8 @@ import constants
 
 exportVars = constants.getConstants()
 EXPORT_SET_NAME = exportVars['exportSetName']
-DUPLICATE_OBJECT_NAME = exportVars['duplicateObjectName']
+# 定义默认值，避免KeyError
+DUPLICATE_OBJECT_NAME = 'original'  # 使用原始对象，不重命名
 DEFAULT_ABC_ARGS = exportVars['defaultArgList']
 
 class BaseExport(object):
@@ -39,18 +40,12 @@ class BaseExport(object):
         return self.filepath
     
     def duplicateObjects(self):
-        """Duplicate objects are used for the export.
-        This prevents export failure due to identical object names, as namespaces are also removed.
-        When importing to Unreal, the objects will appear named as the DUPLICATE_OBJECT_NAME constant followed by a number.
-        This is a negligible edit and does not affect anything other than the name.
-        """
-        cmds.select(self.objectsForExport, replace=1)
-        duplicates = cmds.duplicate(returnRootsOnly=1, upstreamNodes=1, name=DUPLICATE_OBJECT_NAME)
-        self.exportObjects = duplicates
+        """直接使用原始对象导出，不进行复制"""
+        self.exportObjects = self.objectsForExport
     
     def deleteDuplicateObjects(self):
-        """Deletes the duplicate objects."""
-        cmds.delete(self.exportObjects)
+        """由于不再复制对象，此方法无需执行任何操作"""
+        pass
     
     def addFrameData(self):
         """添加帧数据到Alembic文件，供Unreal引擎使用"""

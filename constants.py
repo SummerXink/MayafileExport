@@ -54,11 +54,8 @@ def getConstants():
         # 导出集合名称
         'exportSetName': 'exportSet',
         
-        # 复制对象的名称前缀
-        'duplicateObjectName': 'abcExport',
-        
         # 默认的Alembic导出参数
-        'defaultArgList': '-uvWrite -writeVisibility -worldSpace -dataFormat ogawa'
+        'defaultArgList': '-uvWrite -writeFaceSets -writeVisibility -worldSpace -dataFormat ogawa'
     }
     
     return constants
