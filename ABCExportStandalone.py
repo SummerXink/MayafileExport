@@ -7,11 +7,12 @@ import subprocess
 import tempfile
 import time
 import codecs
+import re
 
-class CameraExportWindow(QMainWindow):
+class ABCExportWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Maya相机FBX导出工具")
+        self.setWindowTitle("Maya ABC导出工具")
         self.maya_path = self._find_maya_path()
         if not self.maya_path:
             QMessageBox.critical(self, "错误", "找不到Maya安装路径！")
@@ -50,6 +51,30 @@ class CameraExportWindow(QMainWindow):
         maya_file_layout.addWidget(self.maya_file_input)
         maya_file_layout.addWidget(maya_file_btn)
         
+        # 命名空间筛选框
+        filter_group = QGroupBox("命名空间筛选")
+        filter_layout = QVBoxLayout(filter_group)
+        
+        # 预设命名空间选项
+        self.namespace_tbx_chr = QCheckBox("tbx_chr")
+        self.namespace_tbx_chr.setChecked(True)
+        self.namespace_tbx_prp = QCheckBox("tbx_prp")
+        self.namespace_tbx_prp.setChecked(True)
+        
+        # 自定义命名空间
+        custom_layout = QHBoxLayout()
+        self.custom_namespace_check = QCheckBox("自定义命名空间:")
+        self.custom_namespace_input = QLineEdit()
+        self.custom_namespace_input.setPlaceholderText("输入自定义命名空间，用逗号分隔")
+        self.custom_namespace_input.setEnabled(False)
+        self.custom_namespace_check.toggled.connect(self.custom_namespace_input.setEnabled)
+        custom_layout.addWidget(self.custom_namespace_check)
+        custom_layout.addWidget(self.custom_namespace_input)
+        
+        filter_layout.addWidget(self.namespace_tbx_chr)
+        filter_layout.addWidget(self.namespace_tbx_prp)
+        filter_layout.addLayout(custom_layout)
+        
         # 输出路径选择
         output_layout = QHBoxLayout()
         self.output_input = QLineEdit()
@@ -58,6 +83,10 @@ class CameraExportWindow(QMainWindow):
         output_layout.addWidget(QLabel("输出路径:"))
         output_layout.addWidget(self.output_input)
         output_layout.addWidget(output_btn)
+        
+        # 材质设置选项
+        self.apply_shader_to_faces = QCheckBox("将材质指定到面上")
+        self.apply_shader_to_faces.setChecked(True)
         
         # 状态显示
         self.status_label = QLabel("就绪")
@@ -76,17 +105,22 @@ class CameraExportWindow(QMainWindow):
         self.log_text.setStyleSheet("background-color: #f0f0f0; color: #333333;")
         
         # 导出按钮
-        self.export_btn = QPushButton("导出相机")
-        self.export_btn.clicked.connect(self.export)
+        self.export_btn = QPushButton("导出ABC")
+        self.export_btn.clicked.connect(self.export_abc_standalone)
         
         # 添加所有控件到主布局
         layout.addLayout(maya_file_layout)
+        layout.addWidget(filter_group)
         layout.addLayout(output_layout)
+        layout.addWidget(self.apply_shader_to_faces)
         layout.addWidget(self.status_label)
         layout.addWidget(self.progress_bar)
         layout.addWidget(QLabel("操作日志:"))
         layout.addWidget(self.log_text)
         layout.addWidget(self.export_btn)
+        
+        # 设置默认大小
+        self.resize(800, 600)
         
     def select_maya_file(self):
         file_name, _ = QFileDialog.getOpenFileName(
@@ -119,7 +153,7 @@ class CameraExportWindow(QMainWindow):
         # 确保UI更新
         QApplication.processEvents()
         
-    def export(self):
+    def export_abc_standalone(self):
         maya_file = self.maya_file_input.text()
         output_path = self.output_input.text()
         
@@ -131,6 +165,14 @@ class CameraExportWindow(QMainWindow):
             QMessageBox.warning(self, "错误", "Maya文件不存在")
             return
             
+        # 获取Maya文件名作为子文件夹名称（不含路径和扩展名）
+        maya_file_basename = os.path.basename(maya_file)
+        maya_file_name = os.path.splitext(maya_file_basename)[0]
+        subfolder_path = os.path.join(output_path, maya_file_name)
+        
+        self.log("Maya文件名: %s" % maya_file_basename)
+        self.log("将创建子文件夹: %s" % subfolder_path)
+        
         # 禁用导出按钮并显示进度条
         self.export_btn.setEnabled(False)
         self.progress_bar.setValue(0)
@@ -140,13 +182,33 @@ class CameraExportWindow(QMainWindow):
         
         # 清空日志区域
         self.log_text.clear()
-        self.log("开始导出任务...")
+        self.log("开始ABC导出任务...")
         self.log("Maya文件: %s" % maya_file)
-        self.log("输出路径: %s" % output_path)
+        self.log("输出路径: %s" % subfolder_path)
+        
+        # 获取命名空间筛选条件
+        namespaces = []
+        if self.namespace_tbx_chr.isChecked():
+            namespaces.append("tbx_chr")
+        if self.namespace_tbx_prp.isChecked():
+            namespaces.append("tbx_prp")
+        if self.custom_namespace_check.isChecked() and self.custom_namespace_input.text():
+            custom_namespaces = [ns.strip() for ns in self.custom_namespace_input.text().split(",")]
+            namespaces.extend(custom_namespaces)
+            
+        if not namespaces:
+            QMessageBox.warning(self, "错误", "请至少选择一个命名空间筛选条件")
+            self.export_btn.setEnabled(True)
+            self.progress_bar.hide()
+            return
+            
+        self.log("命名空间筛选: %s" % ", ".join(namespaces))
+        apply_shader = self.apply_shader_to_faces.isChecked()
+        self.log("将材质指定到面上: %s" % ("是" if apply_shader else "否"))
         
         # 初始化临时文件路径变量
         temp_script = None
-        progress_file = os.path.join(output_path, "export_progress.txt")
+        progress_file = os.path.join(subfolder_path, "export_progress.txt")
         
         try:
             # 获取当前脚本所在目录
@@ -159,7 +221,11 @@ class CameraExportWindow(QMainWindow):
             # 使用一种完全避免任何格式化字符冲突的方式
             safe_current_dir = current_dir.replace('\\', '\\\\')  # 确保路径转义正确
             safe_output_path = output_path.replace('\\', '\\\\')
+            safe_subfolder_path = subfolder_path.replace('\\', '\\\\')
             safe_maya_file = maya_file.replace('\\', '\\\\')
+            safe_maya_file_name = maya_file_name.replace('\\', '\\\\')
+            namespaces_str = ",".join(namespaces)
+            safe_namespaces = namespaces_str.replace('\\', '\\\\')
             
             script_lines = [
                 "# -*- coding: utf-8 -*-",
@@ -177,14 +243,20 @@ class CameraExportWindow(QMainWindow):
                 "if current_dir not in sys.path:",
                 "    sys.path.append(current_dir)",
                 "",
+                "# 创建子文件夹",
+                "subfolder_path = os.path.join(r'" + safe_output_path + "', r'" + safe_maya_file_name + "')",
+                "if not os.path.exists(subfolder_path):",
+                "    os.makedirs(subfolder_path)",
+                "",
                 "# 创建日志文件",
-                "log_file = os.path.join(r'" + safe_output_path + "', 'export_log.txt')",
+                "log_file = os.path.join(subfolder_path, 'export_log.txt')",
                 "def write_log(message):",
                 "    with open(log_file, 'a') as f:",
                 "        current_time = time.strftime('%Y-%m-%d %H:%M:%S')",
                 "        f.write('[' + current_time + '] ' + message + '\\n')",
                 "",
                 "write_log('开始初始化Maya独立模式...')",
+                "write_log('将导出到子文件夹: ' + subfolder_path)",
                 "",
                 "try:",
                 "    # 初始化Maya独立模式",
@@ -205,19 +277,19 @@ class CameraExportWindow(QMainWindow):
                 "    import maya.cmds as cmds",
                 "    import maya.mel as mel",
                 "",
-                "    # 不卸载任何插件，避免崩溃",
+                "    # 加载必要的插件",
                 "    write_log('检查插件状态...')",
                 "    try:",
                 "        loaded_plugins = cmds.pluginInfo(query=True, listPlugins=True) or []",
                 "        write_log('当前加载的插件: ' + str(loaded_plugins))",
                 "        ",
-                "        # 只确保FBX插件加载",
-                "        write_log('加载FBX插件...')",
-                "        if not 'fbxmaya.mll' in loaded_plugins:",
-                "            cmds.loadPlugin('fbxmaya', quiet=True)",
-                "            write_log('FBX插件加载成功')",
+                "        # 确保AbcExport插件加载",
+                "        write_log('加载AbcExport插件...')",
+                "        if not 'AbcExport.mll' in loaded_plugins:",
+                "            cmds.loadPlugin('AbcExport', quiet=True)",
+                "            write_log('AbcExport插件加载成功')",
                 "        else:",
-                "            write_log('FBX插件已加载')",
+                "            write_log('AbcExport插件已加载')",
                 "    except Exception as e:",
                 "        write_log('处理插件时出错: ' + str(e))",
                 "",
@@ -284,33 +356,9 @@ class CameraExportWindow(QMainWindow):
                 "        except Exception as e2:",
                 "            write_log('使用MEL命令打开文件失败: ' + str(e2))",
                 "            write_log('将继续尝试导出，但可能不成功')",
-                "    ",
-                "    # 如果文件打开失败，尝试创建一个简单的测试场景",
-                "    if not file_open_success:",
-                "        try:",
-                "            write_log('创建测试场景...')",
-                "            cmds.camera(name='test_camera_CAM')",
-                "            write_log('创建测试相机成功')",
-                "        except Exception as e:",
-                "            write_log('创建测试相机失败: ' + str(e))",
-                "    ",
-                "    # 检查场景中是否有相机",
-                "    write_log('检查场景中的相机...')",
-                "    try:",
-                "        all_cameras = cmds.ls(type='camera')",
-                "        if not all_cameras:",
-                "            write_log('警告: 场景中没有找到相机')",
-                "        else:",
-                "            write_log('场景中找到 ' + str(len(all_cameras)) + ' 个相机')",
-                "    except Exception as e:",
-                "        write_log('检查相机时出错: ' + str(e))",
-                "    ",
-                "    # 导入并执行导出",
-                "    write_log('导入导出模块...')",
-                "    from CamFbxExport import export_all_cameras",
-                "    ",
+                "",
                 "    # 创建进度文件",
-                "    progress_file = os.path.join(r'" + safe_output_path + "', 'export_progress.txt')",
+                "    progress_file = os.path.join(subfolder_path, 'export_progress.txt')",
                 "    ",
                 "    # 更新进度函数",
                 "    def update_progress(progress, message):",
@@ -323,14 +371,168 @@ class CameraExportWindow(QMainWindow):
                 "            write_log('进度: ' + str(progress) + '% - ' + str(message))",
                 "        except Exception as e:",
                 "            write_log('更新进度出错: ' + str(e))",
-                "    ",
-                "    # 导出相机",
-                "    write_log('开始导出相机...')",
-                "    update_progress(10, '开始导出相机...')",
-                "    export_all_cameras(fbx_directory=r'" + safe_output_path + "', add_border_keys=True, maya_file_path=r'" + safe_maya_file + "')",
-                "    update_progress(100, '导出完成')",
-                "    write_log('导出任务完成')",
-                "    ",
+                "",
+                "    # 辅助函数：检查对象是否可见（包括父级层次）",
+                "    def is_object_visible(obj_path):",
+                "        # 检查自身可见性",
+                "        if not cmds.objExists(obj_path + '.visibility'):",
+                "            return True  # 如果没有visibility属性，默认为可见",
+                "        ",
+                "        if not cmds.getAttr(obj_path + '.visibility'):",
+                "            return False",
+                "        ",
+                "        # 检查父级可见性",
+                "        parent = cmds.listRelatives(obj_path, parent=True, fullPath=True)",
+                "        if parent:",
+                "            return is_object_visible(parent[0])",
+                "        return True",
+                "",
+                "    # 导入模块",
+                "    try:",
+                "        write_log('导入导出相关模块...')",
+                "        import renameShadingGroup",
+                "        import setShadersTool",
+                "        import singleExport",
+                "        import alembicExport",
+                "        write_log('模块导入成功')",
+                "    except Exception as e:",
+                "        write_log('导入模块失败: ' + str(e))",
+                "        raise",
+                "",
+                "    # 开始导出过程",
+                "    update_progress(10, '开始筛选场景对象...')",
+                "",
+                "    # 获取命名空间过滤条件",
+                "    namespaces = ['" + "', '".join(namespaces) + "']",
+                "    write_log('使用命名空间筛选: ' + str(namespaces))",
+                "",
+                "    # 筛选场景中符合条件的对象",
+                "    all_objects = cmds.ls(long=True)",
+                "    filtered_namespaces = set()",
+                "",
+                "    # 筛选命名空间",
+                "    for obj in all_objects:",
+                "        if ':' in obj:",
+                "            ns = obj.split(':')[0]",
+                "            for filter_ns in namespaces:",
+                "                if filter_ns in ns:",
+                "                    filtered_namespaces.add(ns)",
+                "                    break",
+                "",
+                "    write_log('找到匹配的命名空间: ' + str(list(filtered_namespaces)))",
+                "",
+                "    # 按命名空间查找cache组",
+                "    found_cache_groups = {}",
+                "    for ns in filtered_namespaces:",
+                "        cache_path = ns + ':cache'",
+                "        if cmds.objExists(cache_path):",
+                "            write_log('找到cache组: ' + cache_path)",
+                "            ",
+                "            # 检查cache组是否可见",
+                "            if not is_object_visible(cache_path):",
+                "                write_log('警告: cache组 ' + cache_path + ' 不可见，将跳过')",
+                "                continue",
+                "                ",
+                "            # 获取cache下的子对象（仅非隐藏的）",
+                "            children = []",
+                "            hidden_children = []",
+                "            try:",
+                "                children_list = cmds.listRelatives(cache_path, children=True, fullPath=True) or []",
+                "                write_log('cache组 ' + cache_path + ' 下有 ' + str(len(children_list)) + ' 个子对象')",
+                "                ",
+                "                for child in children_list:",
+                "                    # 检查对象是否是变换节点",
+                "                    if cmds.objectType(child) != 'transform':",
+                "                        continue",
+                "                        ",
+                "                    # 递归检查对象及其父级的可见性",
+                "                    if is_object_visible(child):",
+                "                        children.append(child)",
+                "                        write_log('添加可见对象: ' + child)",
+                "                    else:",
+                "                        hidden_children.append(child)",
+                "                        write_log('跳过隐藏对象: ' + child)",
+                "            except Exception as e:",
+                "                write_log('获取子对象时出错: ' + str(e))",
+                "",
+                "            if children:",
+                "                found_cache_groups[ns] = {",
+                "                    'cache_path': cache_path,",
+                "                    'children': children",
+                "                }",
+                "                write_log('命名空间 ' + ns + ' 下找到 ' + str(len(children)) + ' 个可见对象, 跳过 ' + str(len(hidden_children)) + ' 个隐藏对象')",
+                "            else:",
+                "                write_log('命名空间 ' + ns + ' 下没有可见对象，将跳过')",
+                "",
+                "    if not found_cache_groups:",
+                "        write_log('未找到符合条件的cache组！')",
+                "        update_progress(100, '未找到符合条件的对象，导出终止')",
+                "        sys.exit(1)",
+                "",
+                "    write_log('找到 ' + str(len(found_cache_groups)) + ' 个符合条件的cache组')",
+                "    update_progress(20, '找到 ' + str(len(found_cache_groups)) + ' 个符合条件的cache组')",
+                "",
+                "    # 获取当前时间轴范围",
+                "    start_frame = cmds.playbackOptions(q=True, min=True)",
+                "    end_frame = cmds.playbackOptions(q=True, max=True)",
+                "    write_log('帧范围: ' + str(start_frame) + ' - ' + str(end_frame))",
+                "",
+                "    # 遍历每个cache组进行导出",
+                "    total_groups = len(found_cache_groups)",
+                "    current_group = 0",
+                "    total_exported_objects = 0",
+                "",
+                "    for ns, data in found_cache_groups.items():",
+                "        current_group += 1",
+                "        group_progress = 20 + (current_group * 80 / total_groups)",
+                "        update_progress(group_progress, '正在处理 (' + str(current_group) + '/' + str(total_groups) + '): ' + ns)",
+                "        write_log('开始处理: ' + ns)",
+                "",
+                "        try:",
+                "            cache_path = data['cache_path']",
+                "            children = data['children']",
+                "",
+                "            if not children:",
+                "                write_log('警告: ' + cache_path + ' 下没有可见子对象，跳过')",
+                "                continue",
+                "",
+                "            # 将材质指定到面上",
+                "            if " + ("True" if apply_shader else "False") + ":",
+                "                write_log('正在将材质指定到面上...')",
+                "                try:",
+                "                    # 选择所有子对象",
+                "                    cmds.select(children, replace=True)",
+                "                    # 使用setShadersTool将材质指定到面上",
+                "                    setShadersTool.SetShader()",
+                "                    write_log('材质指定到面上成功')",
+                "                except Exception as e:",
+                "                    write_log('将材质指定到面上时出错: ' + str(e))",
+                "",
+                "            # 创建输出文件路径到子文件夹",
+                "            file_name = ns.replace(':', '_') + '.abc'",
+                "            abc_file_path = os.path.join(subfolder_path, file_name)",
+                "",
+                "            # 导出ABC",
+                "            write_log('正在导出: ' + abc_file_path)",
+                "            try:",
+                "                # 选择所有子对象",
+                "                cmds.select(children, replace=True)",
+                "                # 使用singleExport导出",
+                "                singleExport.SingleExport.exportSelection(abc_file_path, start_frame, end_frame)",
+                "                write_log('导出成功: ' + abc_file_path)",
+                "                total_exported_objects += len(children)",
+                "            except Exception as e:",
+                "                write_log('导出ABC时出错: ' + str(e))",
+                "                write_log(traceback.format_exc())",
+                "",
+                "        except Exception as e:",
+                "            write_log('处理 ' + ns + ' 时出错: ' + str(e))",
+                "            write_log(traceback.format_exc())",
+                "",
+                "    write_log('导出统计：总共导出 ' + str(total_exported_objects) + ' 个对象，共 ' + str(len(found_cache_groups)) + ' 个命名空间')",
+                "    update_progress(100, '所有ABC导出完成！')",
+                "    write_log('所有ABC导出完成！')",
+                "",
                 "except Exception as e:",
                 "    error_trace = traceback.format_exc()",
                 "    write_log('发生错误: ' + str(e) + '\\n' + error_trace)",
@@ -348,7 +550,7 @@ class CameraExportWindow(QMainWindow):
             
             script_content = "\n".join(script_lines)
             
-            temp_script = os.path.join(tempfile.gettempdir(), "temp_export_script.py")
+            temp_script = os.path.join(tempfile.gettempdir(), "temp_abc_export_script.py")
             
             # 使用codecs模块打开文件以确保正确的编码处理
             with codecs.open(temp_script, "w", encoding="utf-8") as f:
@@ -356,12 +558,17 @@ class CameraExportWindow(QMainWindow):
             
             self.log("临时脚本创建完成: %s" % temp_script)
             
+            # 确保子文件夹存在
+            if not os.path.exists(subfolder_path):
+                os.makedirs(subfolder_path)
+                self.log("创建子文件夹: %s" % subfolder_path)
+                
             # 创建进度文件
             if os.path.exists(progress_file):
                 os.remove(progress_file)
                 
             # 创建日志文件
-            log_file = os.path.join(output_path, "export_log.txt")
+            log_file = os.path.join(subfolder_path, "export_log.txt")
             if os.path.exists(log_file):
                 os.remove(log_file)
             
@@ -418,7 +625,7 @@ class CameraExportWindow(QMainWindow):
             self.log("开始监控导出进度...")
             start_time = time.time()
             self.timer = QTimer()
-            self.timer.timeout.connect(lambda: self.check_progress(start_time, output_path, progress_file, log_file))
+            self.timer.timeout.connect(lambda: self.check_progress(start_time, subfolder_path, progress_file, log_file))
             self.timer.start(1000)  # 每秒检查一次
             
             # 进程信息记录到类变量
@@ -460,8 +667,8 @@ class CameraExportWindow(QMainWindow):
     
     def check_progress(self, start_time, output_path, progress_file, log_file):
         """检查进度和日志文件"""
-        # 检查超时
-        if time.time() - start_time > 300:
+        # 检查超时 - 修改为30分钟
+        if time.time() - start_time > 1800:  # 30分钟 = 1800秒
             self.log("导出过程超时，中止任务")
             self.process.terminate()
             self.timer.stop()
@@ -470,7 +677,7 @@ class CameraExportWindow(QMainWindow):
             self.status_label.setStyleSheet("color: red;")
             self.export_btn.setEnabled(True)
             self.progress_bar.hide()
-            QMessageBox.critical(self, "错误", "导出任务超时（5分钟）")
+            QMessageBox.critical(self, "错误", "导出任务超时（30分钟）")
             return
         
         # 检查进度文件
@@ -510,7 +717,7 @@ class CameraExportWindow(QMainWindow):
             self.status_label.setText("导出完成！")
             self.status_label.setStyleSheet("color: green;")
             self.log("导出任务成功完成！")
-            QMessageBox.information(self, "成功", "相机导出完成！")
+            QMessageBox.information(self, "成功", "ABC导出完成！")
         else:
             self.log("导出进程返回错误代码: %s" % exit_code)
             self.status_label.setText("导出失败")
@@ -539,9 +746,9 @@ class CameraExportWindow(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    window = CameraExportWindow()
+    window = ABCExportWindow()
     window.show()
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
-    main()
+    main() 

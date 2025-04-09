@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #constants.py
 
 """
@@ -46,11 +47,21 @@ def setConstant(constantVariable, newValue):
 
 
 def getConstants():
-
-        with open(CONSTANTS_FILE) as f:
-            fileInfo = json.load(f)
-            
-        return fileInfo
+    """
+    返回Alembic导出所需的常量字典
+    """
+    constants = {
+        # 导出集合名称
+        'exportSetName': 'exportSet',
+        
+        # 复制对象的名称前缀
+        'duplicateObjectName': 'abcExport',
+        
+        # 默认的Alembic导出参数
+        'defaultArgList': '-uvWrite -writeVisibility -worldSpace -dataFormat ogawa'
+    }
+    
+    return constants
     
     
     

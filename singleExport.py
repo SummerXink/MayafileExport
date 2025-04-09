@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #
 #
@@ -17,11 +18,12 @@ DEFAULT_ABC_ARGS = exportVars['defaultArgList']
 
 class SingleExport(alembicExport.BaseExport):
     def __init__(self):
-        super(SingleExport, self).__init__()
+        # 修改super调用方式，适配Python 2.7
+        alembicExport.BaseExport.__init__(self)
     
     def setFramerange(self, min=None, max=None):
         """Sets and returns the framerange."""
-        return super().setFramerange(min, max)
+        return super(SingleExport, self).setFramerange(min, max)
     
     def getExportSets(self):
         """Returns the found export sets. Errors if none found."""
@@ -48,7 +50,7 @@ class SingleExport(alembicExport.BaseExport):
     
     def setFilepath(self, filepath):
         """Returns the set filepath."""
-        return super().setFilepath(filepath)
+        return super(SingleExport, self).setFilepath(filepath)
     
     def duplicateObjects(self):
         """Duplicate objects are used for the export.
@@ -56,7 +58,7 @@ class SingleExport(alembicExport.BaseExport):
         When importing to Unreal, the objects will appear named as the DUPLICATE_OBJECT_NAME constant followed by a number.
         This is a negligible edit and does not affect anything other than the name.
         """
-        super().duplicateObjects()
+        super(SingleExport, self).duplicateObjects()
     
     def exportFile(self): 
         """Creates the export string.
@@ -72,39 +74,54 @@ class SingleExport(alembicExport.BaseExport):
         
     def deleteDuplicateObjects(self):
         """Deletes the duplicate objects."""
-        super().deleteDuplicateObjects()
+        super(SingleExport, self).deleteDuplicateObjects()
         
     def addFrameData(self):
         """Adds the start frame data to the alembic file for Unreal to read when importing."""
-        super().addFrameData()
+        # 如果实现了addFrameData方法，则调用父类方法
+        super(SingleExport, self).addFrameData()
     
     @classmethod
     def exportSelection(cls, filepath, startFrame=None, endFrame=None):
         """Exports all selected objects to given filepath."""
-        exporter = cls()
-        exporter.setFramerange(startFrame, endFrame)
-        exporter.getSelected()
-        exporter.setFilepath(filepath)
-        exporter.duplicateObjects()
-        exporter.exportFile()
-        exporter.deleteDuplicateObjects()
-        exporter.addFrameData()
-        print('Export Completed')
-        
-        return exporter
+        try:
+            exporter = cls()
+            exporter.setFramerange(startFrame, endFrame)
+            exporter.getSelected()
+            exporter.setFilepath(filepath)
+            exporter.duplicateObjects()
+            exporter.exportFile()
+            exporter.deleteDuplicateObjects()
+            exporter.addFrameData()
+            print('Export Completed')
+            
+            return exporter
+        except Exception as e:
+            # 添加错误处理
+            import traceback
+            print("导出错误: " + str(e))
+            print(traceback.format_exc())
+            raise
         
     @classmethod
     def exportSelectionSets(cls, filepath, startFrame=None, endFrame=None):
         """Exports all objects within the selection sets to the given filepath."""
-        exporter = cls()
-        exporter.setFramerange(startFrame, endFrame)
-        exporter.getExportSets()
-        exporter.setFilepath(filepath)
-        exporter.duplicateObjects()
-        exporter.exportFile()
-        exporter.deleteDuplicateObjects()
-        exporter.addFrameData()
-        print('Export Completed')
-        
-        return exporter
+        try:
+            exporter = cls()
+            exporter.setFramerange(startFrame, endFrame)
+            exporter.getExportSets()
+            exporter.setFilepath(filepath)
+            exporter.duplicateObjects()
+            exporter.exportFile()
+            exporter.deleteDuplicateObjects()
+            exporter.addFrameData()
+            print('Export Completed')
+            
+            return exporter
+        except Exception as e:
+            # 添加错误处理
+            import traceback
+            print("导出错误: " + str(e))
+            print(traceback.format_exc())
+            raise
 

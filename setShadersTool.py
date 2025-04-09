@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #setShadersTool.py
 
 """
@@ -7,7 +8,7 @@ Sets shaders to objects' faces for the Unreal Alembic Cache.
 import maya.cmds as cmds
 
 class SetShader:
-    def __init__(self) -> None:
+    def __init__(self):
         print('Setting shader to face components. . . ')
         cmds.undoInfo(openChunk=1, chunkName='Shader_Set_Action')
         self.getGeometry()
@@ -43,7 +44,8 @@ class SetShader:
         history = cmds.listHistory(self.geometry)
         shadingEngines = cmds.listConnections(history, type='shadingEngine')
         if len(shadingEngines) >1:
-            print('Shading groups found:', shadingEngines, sep='\n')
+            print('Shading groups found:')
+            print(shadingEngines)
             cmds.error('Multiple shading engines already attached to {0} - skipping! (Nothing more needs to be done to this object)\n'.format(self.geometry), noContext=1)
         shader = shadingEngines[0]
 
@@ -66,7 +68,7 @@ class SetShader:
 
     def applyShaders(self):
         """Applies mesh and object shaders. Must be in the afformentioned order.
-        Must also do a viepowrt refresh."""
+        Must also do a viepowt refresh."""
         self.setInitialShaderToMesh()
         self.setShaderToFaces()
         cmds.ogs(reset=1)

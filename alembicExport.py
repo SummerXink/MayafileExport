@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 This file contains the base export functionality for Alembic files in Maya.
 It includes methods for setting the frame range, setting the file path, duplicating objects,
@@ -14,7 +15,7 @@ EXPORT_SET_NAME = exportVars['exportSetName']
 DUPLICATE_OBJECT_NAME = exportVars['duplicateObjectName']
 DEFAULT_ABC_ARGS = exportVars['defaultArgList']
 
-class BaseExport():
+class BaseExport(object):
     def __init__(self):
         pass
     
@@ -51,3 +52,7 @@ class BaseExport():
         """Deletes the duplicate objects."""
         cmds.delete(self.exportObjects)
     
+    def addFrameData(self):
+        """添加帧数据到Alembic文件，供Unreal引擎使用"""
+        # 如果需要实现该方法，可以在此添加代码
+        pass
