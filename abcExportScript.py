@@ -6,7 +6,7 @@ ABC导出脚本 - 可独立执行
 此脚本设计为可以从Maya外部调用或在独立Maya会话中运行
 """
 
-import sys
+import sys 
 import os
 import time
 import traceback
