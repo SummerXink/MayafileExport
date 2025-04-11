@@ -66,7 +66,7 @@ class CameraExportWindow(QMainWindow):
         # 创建单选按钮组
         self.use_second_underscore = QRadioButton("使用第二个下划线前的字符")
         self.use_third_underscore = QRadioButton("使用第三个下划线前的字符")
-        self.use_second_underscore.setChecked(True)  # 默认选中第二个下划线
+        self.use_third_underscore.setChecked(True)  # 默认选中第三个下划线
         
         folder_layout.addWidget(self.use_second_underscore)
         folder_layout.addWidget(self.use_third_underscore)
