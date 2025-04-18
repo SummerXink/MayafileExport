@@ -23,6 +23,7 @@ class ABCExportWindow(QMainWindow):
         self.files_to_export = []  # 存储待导出的文件列表
         self.current_export_index = -1  # 当前正在导出的文件索引
         self.export_running = False  # 是否有导出任务正在运行
+        self.shader_errors = []  # 存储材质应用错误的列表
         
     def _find_maya_path(self):
         """查找Maya安装路径"""
@@ -489,12 +490,35 @@ class ABCExportWindow(QMainWindow):
             elif status == "exporting":
                 status_item = QTableWidgetItem("正在导出")
                 status_item.setForeground(QBrush(QColor("orange")))
+            elif status == "shader_error":
+                # 新增材质应用错误状态
+                status_text = "材质应用错误"
+                if message:
+                    status_text += f": {message}"
+                status_item = QTableWidgetItem(status_text)
+                status_item.setForeground(QBrush(QColor("red")))
+                # 更新状态栏显示材质错误
+                self.show_shader_error(message)
             else:
                 status_item = QTableWidgetItem(message)
                 status_item.setForeground(QBrush(QColor("blue")))
             
             self.file_list.setItem(row, 1, status_item)
             
+    def show_shader_error(self, error_message):
+        """显示材质应用错误到状态栏"""
+        # 保存错误信息
+        self.shader_errors.append(error_message)
+        
+        # 更新状态栏显示
+        self.status_label.setText(f"材质应用错误！")
+        self.status_label.setStyleSheet("color: red; font-weight: bold;")
+        
+        # 记录到日志
+        self.log(f"材质应用错误: {error_message}")
+        
+        # 去掉弹窗显示
+
     def stop_export(self):
         if not self.export_running:
             return
@@ -525,7 +549,8 @@ class ABCExportWindow(QMainWindow):
     def finish_batch_export(self):
         # 计算导出结果统计
         success_count = sum(1 for file in self.files_to_export if file["status"] == "success")
-        failed_count = sum(1 for file in self.files_to_export if file["status"] == "failed")
+        failed_count = sum(1 for file in self.files_to_export if file["status"] == "failed" or file["status"] == "shader_error")
+        shader_error_count = sum(1 for file in self.files_to_export if file["status"] == "shader_error")
         
         # 更新UI状态
         self.export_running = False
@@ -540,8 +565,21 @@ class ABCExportWindow(QMainWindow):
             self.status_label.setStyleSheet("color: green;")
             QMessageBox.information(self, "完成", f"所有 {len(self.files_to_export)} 个文件导出成功！")
         else:
-            self.status_label.setText(f"导出完成 (成功: {success_count}, 失败: {failed_count})")
-            self.status_label.setStyleSheet("color: orange;")
+            if shader_error_count > 0:
+                self.status_label.setText(f"导出完成 (成功: {success_count}, 失败: {failed_count}, 材质错误: {shader_error_count})")
+                self.status_label.setStyleSheet("color: red; font-weight: bold;")
+                
+                # 移除材质错误摘要弹窗
+                # 只在日志中记录错误信息
+                self.log("材质应用错误摘要:")
+                for i, file_info in enumerate(self.files_to_export):
+                    if file_info["status"] == "shader_error":
+                        file_name = os.path.basename(file_info["path"])
+                        self.log(f"• {file_name}")
+            else:
+                self.status_label.setText(f"导出完成 (成功: {success_count}, 失败: {failed_count})")
+                self.status_label.setStyleSheet("color: orange;")
+            
             QMessageBox.warning(self, "部分完成", f"导出完成，成功: {success_count}，失败: {failed_count}")
 
     def on_process_finished(self, exit_code, exit_status):
@@ -551,7 +589,26 @@ class ABCExportWindow(QMainWindow):
         if exit_code == 0:
             self.log("文件导出成功")
             self.task_progress_bar.setValue(100)
-            self.update_file_status("success")
+            
+            # 检查是否有材质错误
+            has_shader_error = False
+            for line in self.log_text.toPlainText().split('\n'):
+                if ("应用材质到对象" in line and ("出错" in line or "失败" in line)) or \
+                   "Set modification failed" in line or "Connection not made" in line:
+                    has_shader_error = True
+                    error_msg = line.split('] ')[-1] if '] ' in line else line
+                    break
+            
+            if has_shader_error:
+                # 即使导出成功，仍然标记为材质错误
+                self.update_file_status("shader_error", error_msg)
+                
+                # 确保状态栏显示材质错误
+                self.status_label.setText(f"导出成功，但存在材质应用错误")
+                self.status_label.setStyleSheet("color: red; font-weight: bold;")
+                self.log("导出成功，但存在材质应用错误")
+            else:
+                self.update_file_status("success")
         else:
             self.log(f"导出进程返回错误代码: {exit_code}")
             self.update_file_status("failed", f"代码: {exit_code}")
@@ -661,7 +718,6 @@ class ABCExportWindow(QMainWindow):
                 if file_info["row"] == row:
                     self.files_to_export.pop(i)
                     removed_count += 1
-                    break
         
         self.log(f"已移除 {removed_count} 个文件")
         
@@ -685,6 +741,13 @@ class ABCExportWindow(QMainWindow):
         line_str = bytes(data).decode('utf-8', errors='ignore').strip()
         if line_str:
             self.log("输出: %s" % line_str)
+            
+            # 检测材质应用错误
+            if "应用材质到对象" in line_str and ("出错" in line_str or "失败" in line_str):
+                self.update_file_status("shader_error", line_str)
+            # 检测Set modification failed错误
+            elif "Set modification failed" in line_str or "Connection not made" in line_str:
+                self.update_file_status("shader_error", line_str)
 
     def read_process_error(self):
         """读取进程的错误输出"""
@@ -692,6 +755,13 @@ class ABCExportWindow(QMainWindow):
         line_str = bytes(data).decode('utf-8', errors='ignore').strip()
         if line_str:
             self.log("错误: %s" % line_str)
+            
+            # 检测材质应用错误
+            if "应用材质到对象" in line_str and ("出错" in line_str or "失败" in line_str):
+                self.update_file_status("shader_error", line_str)
+            # 检测Set modification failed错误
+            elif "Set modification failed" in line_str or "Connection not made" in line_str:
+                self.update_file_status("shader_error", line_str)
 
     def check_progress(self, start_time, output_path, progress_file, log_file):
         """检查进度和日志文件"""

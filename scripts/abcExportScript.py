@@ -182,6 +182,33 @@ try:
             write_log('使用MEL命令打开文件失败: ' + str(e2))
             write_log('将继续尝试导出，但可能不成功')
 
+    # 导入引用文件
+    if file_open_success:
+        write_log('开始导入引用文件...')
+        try:
+            # 获取所有引用
+            references = cmds.file(query=True, reference=True) or []
+            write_log('找到 %d 个引用文件' % len(references))
+            
+            # 逐个导入引用
+            for ref in references:
+                try:
+                    ref_node = cmds.referenceQuery(ref, referenceNode=True)
+                    ref_file = cmds.referenceQuery(ref_node, filename=True)
+                    write_log('正在导入引用: %s' % ref_file)
+                    
+                    # 导入引用
+                    cmds.file(ref_file, importReference=True)
+                    write_log('成功导入引用: %s' % ref_file)
+                except Exception as ref_error:
+                    write_log('导入引用 %s 时出错: %s' % (ref, str(ref_error)))
+                    write_log(traceback.format_exc())
+            
+            write_log('所有引用文件导入完成')
+        except Exception as ref_import_error:
+            write_log('导入引用过程中出错: %s' % str(ref_import_error))
+            write_log(traceback.format_exc())
+
     # 更新进度函数
     def update_progress(progress, message):
         try:
