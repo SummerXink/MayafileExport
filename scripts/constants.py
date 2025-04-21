@@ -22,7 +22,7 @@ CONSTANTS = ['exportSetName', 'duplicateObjectName', 'defaultArgList']
 # Do not edit these. If you want different values, edit the constants.json file.
 DEFAULT_VALUES = ['abcExport', 
                   'PLACEHOLDER', 
-                  '-stripNamespaces -uvWrite -writeFaceSets -writeVisibility -worldSpace -dataFormat ogawa']
+                  '-stripNamespaces -uvWrite -writeFaceSets -writeUVSets -writeVisibility -worldSpace -dataFormat ogawa']
         
 
 def defaultConstants():
@@ -50,15 +50,24 @@ def getConstants():
     """
     返回Alembic导出所需的常量字典
     """
-    constants = {
-        # 导出集合名称
-        'exportSetName': 'exportSet',
+    try:
+        # 尝试从json文件读取
+        with open(CONSTANTS_FILE) as f:
+            return json.load(f)
+    except (IOError, ValueError):
+        # 如果无法读取文件，返回默认值
+        constants = {
+            # 导出集合名称
+            'exportSetName': 'exportSet',
+            
+            # 重命名对象名称
+            'duplicateObjectName': 'PLACEHOLDER',
+            
+            # 默认的Alembic导出参数
+            'defaultArgList': '-stripNamespaces -uvWrite -writeFaceSets -writeUVSets -writeVisibility -worldSpace -dataFormat ogawa'
+        }
         
-        # 默认的Alembic导出参数
-        'defaultArgList': '-uvWrite -writeFaceSets -writeVisibility -worldSpace -dataFormat ogawa'
-    }
-    
-    return constants
+        return constants
     
     
     

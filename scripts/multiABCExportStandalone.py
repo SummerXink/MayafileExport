@@ -611,7 +611,14 @@ class ABCExportWindow(QMainWindow):
                 self.update_file_status("success")
         else:
             self.log(f"导出进程返回错误代码: {exit_code}")
-            self.update_file_status("failed", f"代码: {exit_code}")
+            
+            # 从日志中查找具体错误原因
+            error_reason = self.extract_error_reason()
+            if error_reason:
+                self.update_file_status("failed", error_reason)
+                self.log(f"导出失败原因: {error_reason}")
+            else:
+                self.update_file_status("failed", f"代码: {exit_code}")
         
         # 清理进度文件
         if hasattr(self, 'progress_file') and os.path.exists(self.progress_file):
@@ -626,6 +633,49 @@ class ABCExportWindow(QMainWindow):
             # 继续处理下一个文件
             gc.collect()
             QTimer.singleShot(2000, self.export_next_file)  # 增加到2秒
+            
+    def extract_error_reason(self):
+        """从日志和进程输出中提取具体的错误原因"""
+        # 尝试从日志文本中提取错误原因
+        log_lines = self.log_text.toPlainText().split('\n')
+        
+        # 常见错误消息及其简化解释
+        error_patterns = [
+            ("未找到符合条件的cache组", "未找到符合条件的cache组"),
+            ("cache组.*不可见", "cache组不可见"),
+            ("没有可导出模型", "没有可导出模型"),
+            ("打开文件.*失败", "打开文件失败"),
+            ("加载.*插件.*出错", "加载插件失败"),
+            ("导出ABC时出错", "ABC导出失败"),
+            ("处理对象时出错", "对象处理错误"),
+            ("导入引用.*出错", "导入引用失败"),
+            ("将材质指定到面上时出错", "材质应用失败"),
+            ("三角化模型时出错", "三角化模型失败")
+        ]
+        
+        # 从最近的日志开始查找错误原因
+        for line in reversed(log_lines):
+            # 跳过空行
+            if not line.strip():
+                continue
+                
+            # 查找常见错误消息
+            for pattern, explanation in error_patterns:
+                if re.search(pattern, line):
+                    # 提取具体错误信息
+                    if '] ' in line:
+                        specific_error = line.split('] ')[-1]
+                    else:
+                        specific_error = line
+                    
+                    # 截取合适长度的错误信息
+                    if len(specific_error) > 50:
+                        return explanation
+                    else:
+                        return specific_error
+        
+        # 如果找不到具体错误原因，返回通用消息
+        return "导出过程失败"
 
     def add_maya_files(self):
         file_names, _ = QFileDialog.getOpenFileNames(
