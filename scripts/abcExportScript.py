@@ -23,13 +23,15 @@ if current_dir not in sys.path:
 # 命令行参数支持
 if len(sys.argv) > 1:
     # 如果提供了参数，则解析这些参数
-    # 支持的参数: maya_file, output_path, namespaces, apply_shader, triangulate, use_underscore_index
+    # 支持的参数: maya_file, output_path, namespaces, apply_shader, triangulate, use_underscore_index, enable_smooth, smooth_divisions
     maya_file = sys.argv[1] if len(sys.argv) > 1 else ""
     output_path = sys.argv[2] if len(sys.argv) > 2 else "."
     namespaces_str = sys.argv[3] if len(sys.argv) > 3 else "tbx_chr,tbx_prp"
     apply_shader = True if len(sys.argv) <= 4 or sys.argv[4].lower() == "true" else False
     triangulate = True if len(sys.argv) > 5 and sys.argv[5].lower() == "true" else False
     use_underscore_index = int(sys.argv[6]) if len(sys.argv) > 6 else 3
+    enable_smooth = True if len(sys.argv) > 7 and sys.argv[7].lower() == "true" else False
+    smooth_divisions = int(sys.argv[8]) if len(sys.argv) > 8 else 1
 else:
     # 默认值
     maya_file = ""
@@ -38,6 +40,8 @@ else:
     apply_shader = True
     triangulate = False
     use_underscore_index = 3
+    enable_smooth = False
+    smooth_divisions = 1
 
 # 解析命名空间
 namespaces = [ns.strip() for ns in namespaces_str.split(",")]
@@ -414,6 +418,31 @@ try:
                     write_log('成功三角化 %d 个模型' % triangulated_count)
                 except Exception as e:
                     write_log('三角化模型时出错: ' + str(e))
+                    write_log(traceback.format_exc())
+
+            # 如果需要，应用多边形光滑
+            if enable_smooth and smooth_divisions > 0:
+                write_log('正在应用多边形光滑(层数: %d)...' % smooth_divisions)
+                try:
+                    smoothed_count = 0
+                    for mesh in mesh_objects:
+                        # 获取形状节点
+                        shapes = cmds.listRelatives(mesh, shapes=True, fullPath=True) or []
+                        for shape in shapes:
+                            if cmds.nodeType(shape) == 'mesh':
+                                # 确保形状节点不是中间对象
+                                if not cmds.getAttr(shape + '.intermediateObject'):
+                                    # 应用多边形光滑
+                                    cmds.polySmooth(mesh, 
+                                                   divisions=smooth_divisions,
+                                                   keepBorder=True,  # 保持边界
+                                                   keepHardEdge=True,  # 保持硬边
+                                                   keepMapBorders=True,  # 保持UV边界
+                                                   ch=False)  # 不保留历史记录
+                                    smoothed_count += 1
+                    write_log('成功光滑处理 %d 个模型' % smoothed_count)
+                except Exception as e:
+                    write_log('应用多边形光滑时出错: ' + str(e))
                     write_log(traceback.format_exc())
 
             # 创建输出文件路径到子文件夹

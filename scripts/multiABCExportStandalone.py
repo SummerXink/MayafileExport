@@ -137,6 +137,28 @@ class ABCExportWindow(QMainWindow):
         self.triangulate_meshes = QCheckBox("导出前将模型转换为三角面")
         self.triangulate_meshes.setChecked(False)  # 默认不选中
         
+        # 添加多边形光滑选项
+        smooth_group = QGroupBox("多边形光滑")
+        smooth_layout = QHBoxLayout()
+        
+        self.enable_smooth = QCheckBox("导出前应用多边形光滑")
+        self.enable_smooth.setChecked(False)  # 默认不选中
+        
+        smooth_layout.addWidget(self.enable_smooth)
+        smooth_layout.addWidget(QLabel("光滑层数:"))
+        
+        self.smooth_divisions = QSpinBox()
+        self.smooth_divisions.setMinimum(1)
+        self.smooth_divisions.setMaximum(3)  # 避免设置过高导致性能问题
+        self.smooth_divisions.setValue(1)    # 默认值为1
+        self.smooth_divisions.setEnabled(False)  # 初始禁用
+        
+        # 连接选框状态变化和数值选择器的启用状态
+        self.enable_smooth.toggled.connect(self.smooth_divisions.setEnabled)
+        
+        smooth_layout.addWidget(self.smooth_divisions)
+        smooth_group.setLayout(smooth_layout)
+        
         # 状态与进度区域
         status_group = QGroupBox("状态与进度")
         status_layout = QVBoxLayout()
@@ -203,6 +225,7 @@ class ABCExportWindow(QMainWindow):
         main_layout.addWidget(folder_option_group)
         main_layout.addWidget(self.apply_shader_to_faces)
         main_layout.addWidget(self.triangulate_meshes)
+        main_layout.addWidget(smooth_group)  # 添加光滑选项组
         main_layout.addWidget(status_group)
         main_layout.addWidget(log_group)
         main_layout.addLayout(action_layout)
@@ -418,6 +441,8 @@ class ABCExportWindow(QMainWindow):
             # 获取导出选项
             apply_shader = self.apply_shader_to_faces.isChecked()
             triangulate = self.triangulate_meshes.isChecked()
+            enable_smooth = self.enable_smooth.isChecked()
+            smooth_divisions = self.smooth_divisions.value() if enable_smooth else 0
             
             # 构建命令参数列表
             cmd_args = [
@@ -426,7 +451,9 @@ class ABCExportWindow(QMainWindow):
                 ",".join(namespaces),
                 str(apply_shader).lower(),
                 str(triangulate).lower(),
-                str(use_underscore_index)
+                str(use_underscore_index),
+                str(enable_smooth).lower(),
+                str(smooth_divisions)
             ]
             
             # 完整的命令
