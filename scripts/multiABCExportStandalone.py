@@ -304,6 +304,12 @@ class ABCExportWindow(QMainWindow):
         self.export_next_file()
 
     def export_next_file(self):
+        # 在导出下一个文件前，重置总体状态栏（如果不是材质错误）
+        if self.status_label.text().startswith("材质应用错误") or self.status_label.text().startswith("导出成功，但存在材质应用错误"):
+            self.status_label.setText("批量导出中...")
+            self.status_label.setStyleSheet("color: blue;")
+        # ... existing code ...
+        
         if not self.export_running:
             self.log("导出过程被用户中止")
             self.finish_batch_export()
@@ -619,6 +625,7 @@ class ABCExportWindow(QMainWindow):
             
             # 检查是否有材质错误
             has_shader_error = False
+            error_msg = ""
             for line in self.log_text.toPlainText().split('\n'):
                 if ("应用材质到对象" in line and ("出错" in line or "失败" in line)) or \
                    "Set modification failed" in line or "Connection not made" in line:
@@ -627,15 +634,17 @@ class ABCExportWindow(QMainWindow):
                     break
             
             if has_shader_error:
-                # 即使导出成功，仍然标记为材质错误
-                self.update_file_status("shader_error", error_msg)
-                
+                # 只有不是shader_error状态才设置
+                if self.files_to_export[self.current_export_index]["status"] != "shader_error":
+                    self.update_file_status("shader_error", error_msg)
                 # 确保状态栏显示材质错误
                 self.status_label.setText(f"导出成功，但存在材质应用错误")
                 self.status_label.setStyleSheet("color: red; font-weight: bold;")
                 self.log("导出成功，但存在材质应用错误")
             else:
-                self.update_file_status("success")
+                # 只有不是shader_error状态才设置为success
+                if self.files_to_export[self.current_export_index]["status"] != "shader_error":
+                    self.update_file_status("success")
         else:
             self.log(f"导出进程返回错误代码: {exit_code}")
             
@@ -660,7 +669,7 @@ class ABCExportWindow(QMainWindow):
             # 继续处理下一个文件
             gc.collect()
             QTimer.singleShot(2000, self.export_next_file)  # 增加到2秒
-            
+
     def extract_error_reason(self):
         """从日志和进程输出中提取具体的错误原因"""
         # 尝试从日志文本中提取错误原因

@@ -362,6 +362,14 @@ try:
     start_frame = cmds.playbackOptions(q=True, min=True)
     end_frame = cmds.playbackOptions(q=True, max=True)
     write_log('帧范围: ' + str(start_frame) + ' - ' + str(end_frame))
+    
+    # 解锁initialShadingGroup节点，防止"Destination is locked"错误
+    write_log('解锁initialShadingGroup节点...')
+    try:
+        cmds.lockNode('initialShadingGroup', l=0, lockUnpublished=0)
+        write_log('initialShadingGroup节点解锁成功')
+    except Exception as lock_err:
+        write_log('解锁initialShadingGroup时出错: ' + str(lock_err))
 
     # 遍历每个cache组进行导出
     total_groups = len(found_cache_groups)
@@ -389,13 +397,7 @@ try:
                     if not mesh_objects:
                         write_log('警告: 没有找到有形状节点的模型对象，跳过材质应用')
                     else:
-                        # 解锁initialShadingGroup节点，防止"Destination is locked"错误
-                        write_log('解锁initialShadingGroup节点...')
-                        try:
-                            cmds.lockNode('initialShadingGroup', l=0, lockUnpublished=0)
-                            write_log('initialShadingGroup节点解锁成功')
-                        except Exception as lock_err:
-                            write_log('解锁initialShadingGroup时出错: ' + str(lock_err))
+                        
                             
                         # 只对实际的模型对象应用材质
                         write_log('对 ' + str(len(mesh_objects)) + ' 个模型对象应用材质')
