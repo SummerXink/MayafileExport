@@ -852,7 +852,7 @@ class ABCExportWindow(QMainWindow):
     def check_progress(self, start_time, output_path, progress_file, log_file):
         """检查进度和日志文件"""
         # 检查超时 - 默认为30分钟
-        if time.time() - start_time > 1800:  # 30分钟 = 1800秒
+        if time.time() - start_time > 18000:  # 30分钟 = 1800秒
             self.log("导出过程超时，中止任务")
             self.process.terminate()
             self.timer.stop()

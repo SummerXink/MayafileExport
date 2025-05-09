@@ -1,0 +1,47 @@
+global proc detectionOfTheSameNameMain()
+{
+    timer -s;
+    string $scripName = "检测全部重名节点\@zj_v14";
+    int $amount = 0;
+    progressWindow
+        -title $scripName
+        -progress $amount
+        -status "====正在检测并且重新命名场景内所有的重名物体和节点: 0%===="
+        -isInterruptable true;
+
+    string $allName[] = `ls -tr`;
+    string $nameType = "模型或者组";
+    string $temp_name = `rejiggerName_pro $allName $nameType $amount`;
+
+    if ( !`progressWindow -query -isCancelled` )
+    {
+        $amount = 33;
+        $allName = `ls -s`;
+        $nameType = "Shape节点";
+        $temp_name = $temp_name + "\n" + `rejiggerName_pro $allName $nameType $amount`;
+    }
+
+    if ( !`progressWindow -query -isCancelled` )
+    {
+        $amount = 67;
+        $allName = `ls`;
+        //string $items[] = `ls -tr`;
+        //$allName = stringArrayRemove($items, $allName);
+        //$items = `ls -s`;
+        //$allName = stringArrayRemove($items, $allName);
+        $nameType = "其它节点";
+        $temp_name = $temp_name + "\n" + `rejiggerName_pro $allName $nameType $amount`;
+    }
+    else
+        $temp_name = "程序已经被终止运行.";
+
+    if($temp_name=="\n\n")
+        $temp_name = "GOOD!,场景内没有找到任何重名的物体和节点.";
+
+    progressWindow -endProgress;
+    print("此次运行时间为:"+`timer -e`+"秒.\n");
+
+    confirmDialog -title $scripName -message $temp_name
+        -button "谢谢使用" -defaultButton "谢谢使用"
+        -cancelButton "谢谢使用" -dismissString "谢谢使用";
+}
