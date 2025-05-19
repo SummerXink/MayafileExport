@@ -409,27 +409,6 @@ try:
                     write_log('将材质指定到面上时出错: ' + str(e))
                     write_log(traceback.format_exc())
 
-            # 如果需要，将模型三角化
-            if triangulate:
-                write_log('正在将模型转换为三角面...')
-                try:
-                    original_meshes = mesh_objects[:]
-                    triangulated_count = 0
-                    for mesh in original_meshes:
-                        # 获取形状节点
-                        shapes = cmds.listRelatives(mesh, shapes=True, fullPath=True) or []
-                        for shape in shapes:
-                            if cmds.nodeType(shape) == 'mesh':
-                                # 确保形状节点不是中间对象
-                                if not cmds.getAttr(shape + '.intermediateObject'):
-                                    # 使用polyTriangulate命令三角化
-                                    cmds.polyTriangulate(mesh, ch=False)
-                                    triangulated_count += 1
-                    write_log('成功三角化 %d 个模型' % triangulated_count)
-                except Exception as e:
-                    write_log('三角化模型时出错: ' + str(e))
-                    write_log(traceback.format_exc())
-
             # 如果需要，应用多边形光滑
             if enable_smooth and smooth_divisions > 0:
                 write_log('正在应用多边形光滑(层数: %d)...' % smooth_divisions)
@@ -446,15 +425,36 @@ try:
                                     cmds.polySmooth(mesh, 
                                                    divisions=smooth_divisions,
                                                    keepBorder=True,  # 保持边界
-                                                   keepHardEdge=True,  # 保持硬边
+                                                   keepHardEdge=False,  # 保持硬边
                                                    keepMapBorders=True,  # 保持UV边界
-                                                   ch=False)  # 不保留历史记录
+                                                   ch=True)  # 不保留历史记录
                                     smoothed_count += 1
                     write_log('成功光滑处理 %d 个模型' % smoothed_count)
                 except Exception as e:
                     write_log('应用多边形光滑时出错: ' + str(e))
                     write_log(traceback.format_exc())
 
+            # 如果需要，将模型三角化
+            if triangulate:
+                write_log('正在将模型转换为三角面...')
+                try:
+                    original_meshes = mesh_objects[:]
+                    triangulated_count = 0
+                    for mesh in original_meshes:
+                        # 获取形状节点
+                        shapes = cmds.listRelatives(mesh, shapes=Tue, fullPath=True) or []
+                        for shape in shapes:
+                            if cmds.nodeType(shape) == 'mesh':
+                                # 确保形状节点不是中间对象
+                                if not cmds.getAttr(shape + '.intermediateObject'):
+                                    # 使用polyTriangulate命令三角化
+                                    cmds.polyTriangulate(mesh, ch=False)
+                                    triangulated_count += 1
+                    write_log('成功三角化 %d 个模型' % triangulated_count)
+                except Exception as e:
+                    write_log('三角化模型时出错: ' + str(e))
+                    write_log(traceback.format_exc())
+                    
             # 创建输出文件路径到子文件夹
             file_name = ns.replace(':', '_') + '.abc'
             abc_file_path = os.path.join(subfolder_path, file_name)

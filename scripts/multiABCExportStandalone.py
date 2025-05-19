@@ -98,9 +98,20 @@ class ABCExportWindow(QMainWindow):
         custom_layout.addWidget(self.custom_namespace_check)
         custom_layout.addWidget(self.custom_namespace_input)
         
+        # 添加FBX额外导出选项
+        fbx_export_layout = QHBoxLayout()
+        self.export_fbx_check = QCheckBox("同时导出FBX:")
+        self.fbx_namespace_input = QLineEdit()
+        self.fbx_namespace_input.setPlaceholderText("输入FBX专用命名空间，用逗号分隔")
+        self.fbx_namespace_input.setEnabled(False)
+        self.export_fbx_check.toggled.connect(self.fbx_namespace_input.setEnabled)
+        fbx_export_layout.addWidget(self.export_fbx_check)
+        fbx_export_layout.addWidget(self.fbx_namespace_input)
+        
         filter_layout.addWidget(self.namespace_tbx_chr)
         filter_layout.addWidget(self.namespace_tbx_prp)
         filter_layout.addLayout(custom_layout)
+        filter_layout.addLayout(fbx_export_layout)  # 添加FBX导出选项
         filter_group.setLayout(filter_layout)
         
         # 添加文件夹分隔设置选项
@@ -381,6 +392,11 @@ class ABCExportWindow(QMainWindow):
             self.export_next_file()
             return
         
+        # 获取FBX命名空间筛选条件（如果启用）
+        fbx_namespaces = []
+        if self.export_fbx_check.isChecked() and self.fbx_namespace_input.text():
+            fbx_namespaces = [ns.strip() for ns in self.fbx_namespace_input.text().split(",")]
+        
         # 进度文件路径
         progress_file = os.path.join(output_path, "export_progress.txt")
         
@@ -459,7 +475,9 @@ class ABCExportWindow(QMainWindow):
                 str(triangulate).lower(),
                 str(use_underscore_index),
                 str(enable_smooth).lower(),
-                str(smooth_divisions)
+                str(smooth_divisions),
+                "true" if self.export_fbx_check.isChecked() else "false",  # 是否导出FBX
+                ",".join(fbx_namespaces) if fbx_namespaces else ""  # FBX命名空间
             ]
             
             # 完整的命令
