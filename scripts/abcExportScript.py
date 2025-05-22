@@ -159,7 +159,7 @@ try:
         'open': True,
         'force': True,
         'ignoreVersion': True,
-        'loadReferenceDepth': 'all',  # 加载所有引用
+        #'loadReferenceDepth': 'all',  # 加载所有引用
         'prompt': False,
         'loadNoReferences': False,    # 允许加载引用
         'returnNewNodes': False       # 不返回新节点列表，提高性能
@@ -179,14 +179,15 @@ try:
         try:
             write_log('使用MEL命令尝试打开文件...')
             # 不使用setConstructionHistory命令，直接使用file命令打开
-            mel.eval('file -open -force -ignoreVersion -prompt false -loadReferenceDepth all "' + maya_file.replace('\\', '\\\\') + '";')
+            mel.eval('file -open -force -ignoreVersion -prompt false "' + maya_file.replace('\\', '\\\\') + '";')
             write_log('使用MEL命令打开文件成功')
             file_open_success = True
         except Exception as e2:
             write_log('使用MEL命令打开文件失败: ' + str(e2))
             write_log('将继续尝试导出，但可能不成功')
-
+    
     # 导入引用文件
+    file_open_success = True
     if file_open_success:
         write_log('开始导入引用文件...')
         try:
@@ -194,23 +195,34 @@ try:
             references = cmds.file(query=True, reference=True) or []
             write_log('找到 %d 个引用文件' % len(references))
             
-            # 逐个导入引用
+            # 逐个处理引用
             for ref in references:
                 try:
                     ref_node = cmds.referenceQuery(ref, referenceNode=True)
                     ref_file = cmds.referenceQuery(ref_node, filename=True)
+                    
+                    # 检查引用是否已卸载
+                    is_loaded = cmds.referenceQuery(ref_node, isLoaded=True)
+                    if not is_loaded:
+                        # 如果引用已卸载，先移除
+                        write_log('发现已卸载的引用: %s，正在移除...' % ref_file)
+                        cmds.file(referenceNode=ref_node, removeReference=True)
+                        write_log('成功移除已卸载的引用: %s' % ref_file)
+                        continue
+                        
                     write_log('正在导入引用: %s' % ref_file)
                     
                     # 导入引用
                     cmds.file(ref_file, importReference=True)
                     write_log('成功导入引用: %s' % ref_file)
+                    
                 except Exception as ref_error:
-                    write_log('导入引用 %s 时出错: %s' % (ref, str(ref_error)))
+                    write_log('处理引用 %s 时出错: %s' % (ref, str(ref_error)))
                     write_log(traceback.format_exc())
             
-            write_log('所有引用文件导入完成')
+            write_log('所有引用文件处理完成')
         except Exception as ref_import_error:
-            write_log('导入引用过程中出错: %s' % str(ref_import_error))
+            write_log('处理引用过程中出错: %s' % str(ref_import_error))
             write_log(traceback.format_exc())
 
     # 更新进度函数
@@ -295,6 +307,11 @@ try:
             for filter_ns in namespaces:
                 if filter_ns in ns:
                     filtered_namespaces.add(ns)
+                    break
+            ns_1 = obj.split(':')[1]
+            for filter_ns1 in namespaces:
+                if filter_ns1 in ns_1:
+                    filtered_namespaces.add(ns_1)
                     break
 
     write_log('找到匹配的命名空间: ' + str(list(filtered_namespaces)))
