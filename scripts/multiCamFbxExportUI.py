@@ -105,8 +105,17 @@ class CameraExportWindow(QMainWindow):
         folder_option_layout.addWidget(self.use_third_underscore)
         folder_option_layout.addStretch()
         
+        # 添加引用加载选项
+        reference_option_layout = QHBoxLayout()
+        reference_option_layout.addWidget(QLabel("引用加载:"))
+        self.load_references = QCheckBox("加载引用,(当相机被引用约束时使用)")
+        self.load_references.setChecked(False)  # 默认不加载引用
+        reference_option_layout.addWidget(self.load_references)
+        reference_option_layout.addStretch()
+        
         output_layout.addLayout(output_path_layout)
         output_layout.addLayout(folder_option_layout)
+        output_layout.addLayout(reference_option_layout)  # 添加引用选项布局
         output_group.setLayout(output_layout)
         
         # 状态与进度区域
@@ -265,7 +274,6 @@ class CameraExportWindow(QMainWindow):
                 if file_info["row"] == row:
                     self.files_to_export.pop(i)
                     removed_count += 1
-                    break
         
         self.log(f"已移除 {removed_count} 个文件")
         
@@ -381,9 +389,12 @@ class CameraExportWindow(QMainWindow):
         # 获取选择的文件夹选项
         use_underscore_index = 2 if self.use_second_underscore.isChecked() else 3
         
+        # 获取是否加载引用的设置
+        load_references = self.load_references.isChecked()
+        
         # 准备导出过程
         self.log(f"开始导出文件 ({self.current_export_index + 1}/{len(self.files_to_export)}): {os.path.basename(maya_file)}")
-        self.export(maya_file, use_underscore_index)
+        self.export(maya_file, use_underscore_index, load_references)
     
     def stop_export(self):
         if not self.export_running:
@@ -451,7 +462,7 @@ class CameraExportWindow(QMainWindow):
         # 确保UI更新
         QApplication.processEvents()
     
-    def export(self, maya_file, use_underscore_index):
+    def export(self, maya_file, use_underscore_index, load_references):
         output_path = self.output_input.text()
         
         if not os.path.exists(maya_file):
@@ -575,10 +586,10 @@ try:
         'open': True,
         'force': True,
         'ignoreVersion': True,
-        'loadReferenceDepth': 'none',  # 不加载引用
+        'loadReferenceDepth': 'all' if %s else 'none',  # 根据选项决定是否加载引用
         'prompt': False,
-        'loadNoReferences': True,      # 跳过所有引用
-        'returnNewNodes': False        # 不返回新节点列表，提高性能
+        'loadNoReferences': not %s,  # 根据选项决定是否加载引用
+        'returnNewNodes': False
     }
 
     write_log('尝试打开文件: ' + r'%s')
@@ -595,7 +606,10 @@ try:
         try:
             write_log('使用MEL命令尝试打开文件...')
             mel.eval('setConstructionHistory(false);')
-            mel.eval('file -open -force -ignoreVersion -prompt false -loadNoReferences \"%s\";')
+            if %s:
+                mel.eval('file -open -force -ignoreVersion -prompt false \"%s\";')
+            else:
+                mel.eval('file -open -force -ignoreVersion -prompt false -loadNoReferences \"%s\";')
             write_log('使用MEL命令打开文件成功')
             file_open_success = True
         except Exception as e2:
@@ -663,7 +677,9 @@ finally:
     except:
         write_log('关闭Maya时出错')
 """ % (safe_current_dir, safe_output_path, use_underscore_index, 
-       safe_maya_file, safe_maya_file, safe_maya_file.replace('\\', '\\\\'),
+       str(load_references), str(load_references),
+       safe_maya_file, safe_maya_file,
+       str(load_references), safe_maya_file, safe_maya_file,
        safe_output_path, safe_output_path, safe_maya_file)
             
             temp_script = os.path.join(tempfile.gettempdir(), "temp_export_script.py")
